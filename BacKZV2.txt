@@ -1,0 +1,214 @@
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Robojini/Tuturial_UI_Library/main/UI_Template_1"))()
+
+local Window = Library.CreateLib("BackZV2/BETA", "RJTheme3")
+
+local Tab = Window:NewTab("Hitbox")
+
+local Section = Tab:NewSection("Hitbox/Aimbot")
+
+Section:NewButton("hitbox", "info/only/30", function()
+    _G.HeadSize = 30
+_G.Disabled = true
+ 
+game:GetService('RunService').RenderStepped:connect(function()
+if _G.Disabled then
+for i,v in next, game:GetService('Players'):GetPlayers() do
+if v.Name ~= game:GetService('Players').LocalPlayer.Name then
+pcall(function()
+v.Character.HumanoidRootPart.Size = Vector3.new(_G.HeadSize,_G.HeadSize,_G.HeadSize)
+v.Character.HumanoidRootPart.Transparency = 0.7
+v.Character.HumanoidRootPart.BrickColor = BrickColor.new("Really blue")
+v.Character.HumanoidRootPart.Material = "Neon"
+v.Character.HumanoidRootPart.CanCollide = false
+end)
+end
+end
+end
+end)
+end)
+  
+Section:NewButton("Aimbot", "Aimbot /:", function()
+    local teamCheck = false
+local fov = 90
+local smoothing = 1
+local predictionFactor = 0  -- Adjust this factor to improve prediction accuracy
+local highlightEnabled = false  -- Variable to enable or disable target highlighting. Change to False if using an ESP script.
+local lockPart = "Head"  -- Choose what part it locks onto. Ex. HumanoidRootPart or Head
+
+local Toggle = false  -- Enable or disable toggle mode
+local ToggleKey = Enum.KeyCode.E  -- Choose the key for toggling aimbot lock
+
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local StarterGui = game:GetService("StarterGui")
+local Players = game:GetService("Players")
+
+StarterGui:SetCore("SendNotification", {
+    Title = "Aimbot";
+    Text = "mixvpn";
+    Duration = 5;
+})
+
+local FOVring = Drawing.new("Circle")
+FOVring.Visible = true
+FOVring.Thickness = 1
+FOVring.Radius = fov
+FOVring.Transparency = 0.8
+FOVring.Color = Color3.fromRGB(255, 128, 128)
+FOVring.Position = workspace.CurrentCamera.ViewportSize / 2
+
+local currentTarget = nil
+local aimbotEnabled = true
+local toggleState = false  -- Variable to keep track of toggle state
+local debounce = false  -- Debounce variable
+
+local function getClosest(cframe)
+    local ray = Ray.new(cframe.Position, cframe.LookVector).Unit
+    local target = nil
+    local mag = math.huge
+    local screenCenter = workspace.CurrentCamera.ViewportSize / 2
+
+    for i, v in pairs(Players:GetPlayers()) do
+        if v.Character and v.Character:FindFirstChild(lockPart) and v.Character:FindFirstChild("Humanoid") and v.Character:FindFirstChild("HumanoidRootPart") and v ~= Players.LocalPlayer and (v.Team ~= Players.LocalPlayer.Team or (not teamCheck)) then
+            local screenPoint, onScreen = workspace.CurrentCamera:WorldToViewportPoint(v.Character[lockPart].Position)
+            local distanceFromCenter = (Vector2.new(screenPoint.X, screenPoint.Y) - screenCenter).Magnitude
+
+            if onScreen and distanceFromCenter <= fov then
+                local magBuf = (v.Character[lockPart].Position - ray:ClosestPoint(v.Character[lockPart].Position)).Magnitude
+
+                if magBuf < mag then
+                    mag = magBuf
+                    target = v
+                end
+            end
+        end
+    end
+
+    return target
+end
+
+local function updateFOVRing()
+    FOVring.Position = workspace.CurrentCamera.ViewportSize / 2
+end
+
+local function highlightTarget(target)
+    if highlightEnabled and target and target.Character then
+        local highlight = Instance.new("Highlight")
+        highlight.Adornee = target.Character
+        highlight.FillColor = Color3.fromRGB(255, 128, 128)
+        highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+        highlight.Parent = target.Character
+    end
+end
+
+local function removeHighlight(target)
+    if highlightEnabled and target and target.Character and target.Character:FindFirstChildOfClass("Highlight") then
+        target.Character:FindFirstChildOfClass("Highlight"):Destroy()
+    end
+end
+
+local function predictPosition(target)
+    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+        local velocity = target.Character.HumanoidRootPart.Velocity
+        local position = target.Character[lockPart].Position
+        local predictedPosition = position + (velocity * predictionFactor)
+        return predictedPosition
+    end
+    return nil
+end
+
+local function handleToggle()
+    if debounce then return end
+    debounce = true
+    toggleState = not toggleState
+    wait(0.3)  -- Debounce time to prevent multiple toggles
+    debounce = false
+end
+
+loop = RunService.RenderStepped:Connect(function()
+    if aimbotEnabled then
+        updateFOVRing()
+
+        local localPlayer = Players.LocalPlayer.Character
+        local cam = workspace.CurrentCamera
+        local screenCenter = workspace.CurrentCamera.ViewportSize / 2
+
+        if Toggle then
+            if UserInputService:IsKeyDown(ToggleKey) then
+                handleToggle()
+            end
+        else
+            toggleState = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
+        end
+
+        if toggleState then
+            if not currentTarget then
+                currentTarget = getClosest(cam.CFrame)
+                highlightTarget(currentTarget)  -- Highlight the new target if enabled
+            end
+
+            if currentTarget and currentTarget.Character and currentTarget.Character:FindFirstChild(lockPart) then
+                local predictedPosition = predictPosition(currentTarget)
+                if predictedPosition then
+                    workspace.CurrentCamera.CFrame = workspace.CurrentCamera.CFrame:Lerp(CFrame.new(cam.CFrame.Position, predictedPosition), smoothing)
+                end
+                FOVring.Color = Color3.fromRGB(0, 255, 0)  -- Change FOV ring color to green when locked onto a target
+            else
+                FOVring.Color = Color3.fromRGB(255, 128, 128)  -- Revert FOV ring color to original when not locked onto a target
+            end
+        else
+            if currentTarget and highlightEnabled then
+                removeHighlight(currentTarget)  -- Remove highlight from the old target
+            end
+            currentTarget = nil
+            FOVring.Color = Color3.fromRGB(255, 128, 128)  -- Revert FOV ring color to original when not locked onto a target
+        end
+    end
+end)
+end)
+
+Section:NewKeybind("KeybindSound", "Sound/IDK", Enum.KeyCode.F, function()
+	local SoundService = game:GetService("SoundService")
+
+-- Example: Set the ambient volume
+SoundService.AmbientReverb = Enum.ReverbType.Cave
+
+-- Example: Play a sound globally
+local sound = Instance.new("Sound")
+sound.SoundId = "rbxassetid://1841677128" -- Replace with a valid sound asset ID
+sound.Volume = 0.9
+sound.Looped = false
+sound.Parent = SoundService
+sound:Play()
+end)
+
+local Tab = Window:NewTab("Esp")
+
+local Section = Tab:NewSection("Esp")
+
+Section:NewButton("Esp", "Fps/drop/sorry", function()
+    loadstring(game:HttpGet('https://raw.githubusercontent.com/Lucasfin000/SpaceHub/main/UESP'))()
+end)
+
+local Tab = Window:NewTab("???")
+
+local Section = Tab:NewSection("???")
+
+Section:NewButton("AAAAAA ####", "GGBRO!", function()
+    loadstring(game:HttpGet('https://raw.githubusercontent.com/Mixvpnv2/WTF/refs/heads/main/Server.lua'))()
+end)
+
+Section:NewButton("?????", "?????", function()
+    local SoundService = game:GetService("SoundService")
+
+-- Example: Set the ambient volume
+SoundService.AmbientReverb = Enum.ReverbType.Cave
+
+-- Example: Play a sound globally
+local sound = Instance.new("Sound")
+sound.SoundId = "rbxassetid://9043360808" -- Replace with a valid sound asset ID
+sound.Volume = 100
+sound.Looped = false
+sound.Parent = SoundService
+sound:Play()
+end)
